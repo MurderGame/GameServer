@@ -1,4 +1,4 @@
-const {Schema, StreamingAbstractor} = require('protocore')
+const {Schema, StreamingAbstractor, types} = require('protocore')
 
 module.exports = () => {
 	const build = new StreamingAbstractor()
@@ -6,50 +6,50 @@ module.exports = () => {
 	build.register('render', new Schema([
 		{
 			"name": 'entities',
-			"type": 'list',
+			"type": types.list,
 			"of": new Schema([
 				{
 					'name': 'type',
-					'type': 'uint',
+					'type': types.uint,
 					'size': 8
 				},
 				{
 					'name': 'color',
-					'type': 'string'
+					'type': types.string
 				},
 				{
 					'name': 'x',
-					'type': 'int',
+					'type': types.int,
 					'size': 32
 				},
 				{
 					'name': 'y',
-					'type': 'int',
+					'type': types.int,
 					'size': 32
 				},
 				{
 					'name': 'width',
-					'type': 'int',
+					'type': types.int,
 					'size': 32
 				},
 				{
 					'name': 'height',
-					'type': 'int',
+					'type': types.int,
 					'size': 32
 				},
 				{
 					'name': 'xvel',
-					'type': 'int',
+					'type': types.int,
 					'size': 16
 				},
 				{
 					'name': 'yvel',
-					'type': 'int',
+					'type': types.int,
 					'size': 16
 				},
 				{
 					'name': 'name',
-					'type': 'string'
+					'type': types.string
 				}
 			])
 		}
@@ -58,32 +58,32 @@ module.exports = () => {
 	build.register('profile', new Schema([
 		{
 			'name': 'name',
-			'type': 'string'
+			'type': types.string
 		}
 	]))
 
 	build.register('chat', new Schema([
 		{
 			'name': 'message',
-			'type': 'string'
+			'type': types.string
 		},
 		{
 			'name': 'from',
-			'type': 'string'
+			'type': types.string
 		}
 	]))
 	
 	build.register('keyup', new Schema([
 		{
 			'name': 'key',
-			'type': 'string'
+			'type': types.string
 		}
 	]))
 	
 	build.register('keydown', new Schema([
 		{
 			'name': 'key',
-			'type': 'string'
+			'type': types.string
 		}
 	]))
 	

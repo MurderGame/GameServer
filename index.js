@@ -45,13 +45,15 @@ const findSafeLocation = () => {
 	let safe = false
 	let loc = []
 	
+	const entities = gameState.enemies.concat(gameState.powerups).concat(clients.filter((client) => typeof client.data === 'object').map((client) => client.data))
+	
 	while (safe === false) {
-		loc = [Math.floor(Math.random() * (gameState.width - 30)), Math.floor(Math.random() * (gameState.height - 65))]
+		loc = [Math.floor(Math.random() * (gameState.width - 50)), Math.floor(Math.random() * (gameState.height - 80))]
 		
 		safe = true
 		
-		for (let i = 0; i < gameState.enemies.length; i++) {
-			if (eucli(loc, [gameState.enemies[i].entity.x, gameState.enemies[i].entity.y]) < 150) {
+		for (let i = 0; i < entities.length; i++) {
+			if (eucli(loc, [entities[i].entity.x, entities[i].entity.y]) < 300) {
 				safe = false
 			}
 		}
@@ -125,6 +127,13 @@ const server = net.createServer((client) => {
 	})
 
 	abstractor.on('chat', (data) => {
+		if (data.message.length > 201) {
+			client.end()
+			return
+		}
+		
+		console.log(client.data.name + ': ' + data.message)
+		
 		for (let i = 0; i < clients.length; i++) {
 			if (clients[i].abstractor) {
 				clients[i].abstractor.send('chat', {
@@ -254,6 +263,8 @@ setInterval(() => {
 			
 			if (powerup.entity.touches(client.data.entity)) {
 				client.data.score += 1
+				
+				//addEnemy()
 				
 				gameState.powerups.splice(i, 1)
 				
