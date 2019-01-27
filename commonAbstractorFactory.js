@@ -5,9 +5,13 @@ module.exports = () => {
 	
 	build.register('render', new Schema([
 		{
-			"name": 'entities',
-			"type": types.list,
-			"of": new Schema([
+			'name': 'backgroundColor',
+			'type': types.string
+		},
+		{
+			'name': 'entities',
+			'type': types.list,
+			'of': new Schema([
 				{
 					'name': 'type',
 					'type': types.uint,
@@ -50,6 +54,10 @@ module.exports = () => {
 				{
 					'name': 'name',
 					'type': types.string
+				},
+				{
+					'name': 'isClient',
+					'type': types.boolean
 				}
 			])
 		}
@@ -82,6 +90,30 @@ module.exports = () => {
 			'type': types.string
 		}
 	]))
+
+	build.register('particle', new Schema([
+		{
+			'name': 'type',
+			'type': types.uint,
+			'size': 8
+		},
+		{
+			'name': 'x',
+			'type': types.int,
+			'size': 32
+		},
+		{
+			'name': 'y',
+			'type': types.int,
+			'size': 32
+		},
+		{
+			'name': 'color',
+			'type': types.string
+		}
+	]))
+
+	build.register('blur', new Schema([]))
 	
 	build.register('dead', new Schema([]))
 	
