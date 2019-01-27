@@ -23,7 +23,8 @@ const gameState = {
 	'height': 720,
 	'backgroundColor': '#F7F7F7',
 	'backgroundColors': ['#515261', '#B1C4D2', '#E5E5E5', '#3D3D3D', '#F2F2F0'],
-	'currentBackgroundColorIndex': 0
+	'currentBackgroundColorIndex': 0,
+	'enemyTargetSpeed': 1.2
 }
 
 const addEnemy = () => {
@@ -54,9 +55,11 @@ const findSafeLocation = () => {
 	let safe = false
 	let loc = []
 	
+	let attempts = 0
+
 	const entities = gameState.enemies.concat(gameState.powerups).concat(clients.filter((client) => typeof client.data === 'object').map((client) => client.data))
 	
-	while (safe === false) {
+	while (safe === false && attempts < 10) {
 		loc = [Math.floor(Math.random() * (gameState.width - 100)) + 50, Math.floor(Math.random() * (gameState.height - 160)) + 80]
 		
 		safe = true
@@ -66,6 +69,8 @@ const findSafeLocation = () => {
 				safe = false
 			}
 		}
+
+		attempts++
 	}
 	
 	return loc
@@ -81,7 +86,7 @@ const nextBackgroundColor = () => {
 	}
 }
 
-const powerupTypes = ['slow', 'destroy']
+const powerupTypes = ['slow', 'destroy', 'magnet']
 
 const addPowerUp = () => {
 	const pos = findSafeLocation()
@@ -220,24 +225,39 @@ addPowerUp()
 
 const waitAddPowerup = () => {
 	setTimeout(() => {
-		const eligibleClients = clients.filter((client) => typeof client.data === 'object' && client.data.dead === false)
+		const eligibleClients = getConnectedClients().filter((client) => client.data.dead === false)
 		
-		if (eligibleClients.length > debugMode ? 0 : 1) {
+		if (eligibleClients.length > (debugMode ? 0 : 1)) {
 			addPowerUp()
 		}
 		else waitAddPowerup()
-	}, 1000 + Math.floor(Math.random() * 400))
+	}, 1800 + Math.floor(Math.random() * 1000))
 }
 
-const setActivePowerup = (type, mode, target) => {
+const setActivePowerup = (type, mode, target, particle = false) => {
 	clients.filter((client) => typeof client.data === 'object').forEach((client) => {
 		client.data.powerup = null
+
+		let apply = false
 		
 		if (mode === 'others') {
-			if (client !== target) client.data.powerup = type
+			if (client !== target) {
+				apply = true
+			}
 		}
 		else if (client === target) {
+			apply = true
+		}
+
+		if (apply === true) {
 			client.data.powerup = type
+
+			if (typeof particle === 'object') {
+				sendAll('particle', Object.assign(particle, {
+					'x': client.data.entity.x + client.data.entity.width / 2,
+					'y': client.data.entity.y + client.data.entity.height / 2
+				}))
+			}
 		}
 	})
 }
@@ -245,15 +265,38 @@ const setActivePowerup = (type, mode, target) => {
 setInterval(() => {
 	// Update enemy data
 
+	const targetPlayers = getConnectedClients().filter((client) => client.data.powerup === 'magnet' && client.data.dead === false)
+
 	for (let i = 0; i < gameState.enemies.length; i++) {
 		const enemy = gameState.enemies[i]
-		
-		enemy.entity.x += enemy.xspeed
-		enemy.entity.y += enemy.yspeed
-		
-		if (enemy.entity.y + enemy.entity.radius > gameState.height || enemy.entity.y - enemy.entity.radius < 0) enemy.yspeed *= -1
-		
-		if (enemy.entity.x + enemy.entity.radius > gameState.width || enemy.entity.x - enemy.entity.radius < 0) enemy.xspeed *= -1
+
+		if (targetPlayers.length > 0) {
+			const enemyPriorities = targetPlayers.sort((a, b) => eucli([enemy.entity.x, enemy.entity.y], [a.data.entity.x, a.data.entity.y]) < eucli([enemy.entity.x, enemy.entity.y], [b.data.entity.x, b.data.entity.y]) ? -1 : 1)
+			
+			const topTarget = enemyPriorities[0]
+
+			if (topTarget.data.entity.x > enemy.entity.x) {
+				enemy.entity.x += gameState.enemyTargetSpeed
+			}
+			else {
+				enemy.entity.x += -1 * gameState.enemyTargetSpeed
+			}
+
+			if (topTarget.data.entity.y > enemy.entity.y) {
+				enemy.entity.y += gameState.enemyTargetSpeed
+			}
+			else {
+				enemy.entity.y += -1 * gameState.enemyTargetSpeed
+			}
+		}
+		else {
+			enemy.entity.x += enemy.xspeed
+			enemy.entity.y += enemy.yspeed
+			
+			if (enemy.entity.y + enemy.entity.radius > gameState.height || enemy.entity.y - enemy.entity.radius < 0) enemy.yspeed *= -1
+			
+			if (enemy.entity.x + enemy.entity.radius > gameState.width || enemy.entity.x - enemy.entity.radius < 0) enemy.xspeed *= -1
+		}
 	}
 	
 	// Update client data (movement)
@@ -296,7 +339,7 @@ setInterval(() => {
 		}
 		
 		if (client.data.powerup === 'destroy') {
-			client.data.entity.backgroundColor = '#B50000'
+			client.data.entity.backgroundColor = '#C0392B'
 		}
 		else {
 			client.data.entity.backgroundColor = client.data.originalColor
@@ -343,11 +386,20 @@ setInterval(() => {
 			const enemy = gameState.enemies[i]
 			
 			if (enemy.entity.touches(client.data.entity)) {
-				client.data.dead = true
-				
-				setTimeout(() => {
-					client.abstractor.send('dead', {})
-				}, 1000)
+				if (client.data.powerup === 'destroy') {
+					gameState.enemies.splice(i, 1)
+
+					setTimeout(() => {
+						addEnemy()
+					}, 3000)
+				}
+				else {
+					client.data.dead = true
+					
+					setTimeout(() => {
+						client.abstractor.send('dead', {})
+					}, 1000)
+				}
 			}
 		}
 		
@@ -359,12 +411,12 @@ setInterval(() => {
 			if (powerup.entity.touches(client.data.entity)) {
 				sendAll('blur', {})
 
-				sendAll('particle', {
+				/*sendAll('particle', {
 					'type': 0,
 					'x': client.data.entity.x,
 					'y': client.data.entity.y,
 					'color': '#1AAF5D'
-				})
+				})*/
 
 				client.data.score += 1
 
@@ -377,10 +429,22 @@ setInterval(() => {
 				console.log(powerup.type + ' powerup collected by ' + client.data.name)
 				
 				if (powerup.type === 'slow') {
-					setActivePowerup('slow', 'others', client)
+					setActivePowerup('slow', 'others', client, {
+						'type': 1,
+						'color': '#8E44AD'
+					})
 				}
 				else if (powerup.type === 'destroy') {
-					setActivePowerup('destroy', 'same', client)
+					setActivePowerup('destroy', 'same', client, {
+						'type': 1,
+						'color': '#6F1417'
+					})
+				}
+				else if (powerup.type === 'magnet') {
+					setActivePowerup('magnet', 'others', client, {
+						'type': 1,
+						'color': '#95A5A6'
+					})
 				}
 				
 				waitAddPowerup()
