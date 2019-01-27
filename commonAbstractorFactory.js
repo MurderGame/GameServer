@@ -66,10 +66,6 @@ module.exports = () => {
 		{
 			'name': 'message',
 			'type': types.string
-		},
-		{
-			'name': 'from',
-			'type': types.string
 		}
 	]))
 	

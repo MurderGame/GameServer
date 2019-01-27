@@ -48,7 +48,7 @@ const findSafeLocation = () => {
 	const entities = gameState.enemies.concat(gameState.powerups).concat(clients.filter((client) => typeof client.data === 'object').map((client) => client.data))
 	
 	while (safe === false) {
-		loc = [Math.floor(Math.random() * (gameState.width - 50)), Math.floor(Math.random() * (gameState.height - 80))]
+		loc = [Math.floor(Math.random() * (gameState.width - 100)) + 50, Math.floor(Math.random() * (gameState.height - 160)) + 80]
 		
 		safe = true
 		
@@ -62,10 +62,13 @@ const findSafeLocation = () => {
 	return loc
 }
 
+const powerupTypes = ['slow', 'destroy']
+
 const addPowerUp = () => {
 	const pos = findSafeLocation()
 	
 	gameState.powerups.push({
+		'type': powerupTypes[Math.floor(Math.random() * powerupTypes.length)],
 		'xspeed': 0,
 		'yspeed': 0,
 		'entity': new canvax.Circle({
@@ -81,6 +84,16 @@ const playerColors = ['#4EBA6F', '#2D95BF', '#955BA5', '#334D5C', '#45B29D']
 
 const randomColor = () => playerColors[Math.floor(Math.random() * playerColors.length)]
 
+const chatAll = (message) => {
+	for (let i = 0; i < clients.length; i++) {
+		if (clients[i].abstractor) {
+			clients[i].abstractor.send('chat', {
+				'message': message
+			})
+		}
+	}
+}
+
 const server = net.createServer((client) => {
 	console.log('A client connected.')
 	
@@ -90,8 +103,12 @@ const server = net.createServer((client) => {
 	
 	const spawnSafeLoc = findSafeLocation()
 	
+	const playerColor = randomColor()
+	
 	client.data = {
+		'originalColor': playerColor,
 		'keys': [],
+		'powerup': null,
 		'score': 0,
 		'vel': {
 			'x': 0,
@@ -103,7 +120,7 @@ const server = net.createServer((client) => {
 			'y': spawnSafeLoc[1],
 			'width': 30,
 			'height': 30,
-			'backgroundColor': randomColor()
+			'backgroundColor': playerColor
 		})
 	}
 	
@@ -134,14 +151,7 @@ const server = net.createServer((client) => {
 		
 		console.log(client.data.name + ': ' + data.message)
 		
-		for (let i = 0; i < clients.length; i++) {
-			if (clients[i].abstractor) {
-				clients[i].abstractor.send('chat', {
-					'message': data.message,
-					'from': client.data.name
-				})
-			}
-		}
+		chatAll(client.data.name + ': ' + data.message)
 	})
 	
 	abstractor.on('keydown', (data) => {
@@ -180,6 +190,30 @@ server.listen(5135, () => {
 })
 
 addPowerUp()
+
+const waitAddPowerup = () => {
+	setTimeout(() => {
+		const eligibleClients = clients.filter((client) => typeof client.data === 'object' && client.data.dead === false)
+		
+		if (eligibleClients.length > 1) {
+			addPowerUp()
+		}
+		else waitAddPowerup()
+	}, 1000 + Math.floor(Math.random() * 400))
+}
+
+const setActivePowerup = (type, mode, target) => {
+	clients.filter((client) => typeof client.data === 'object').forEach((client) => {
+		client.data.powerup = null
+		
+		if (mode === 'others') {
+			if (client !== target) client.data.powerup = type
+		}
+		else if (client === target) {
+			client.data.powerup = type
+		}
+	})
+}
 
 setInterval(() => {
 	// Update enemy data
@@ -229,6 +263,18 @@ setInterval(() => {
 		client.data.vel.y *= 0.91
 		client.data.vel.x *= 0.91
 		
+		if (client.data.powerup === 'slow') {
+			client.data.vel.y *= 0.85
+			client.data.vel.x *= 0.85
+		}
+		
+		if (client.data.powerup === 'destroy') {
+			client.data.entity.backgroundColor = '#B50000'
+		}
+		else {
+			client.data.entity.backgroundColor = client.data.originalColor
+		}
+		
 		client.data.entity.x += client.data.vel.x
 		client.data.entity.y += client.data.vel.y
 	}
@@ -241,6 +287,26 @@ setInterval(() => {
 		if (typeof client.data !== 'object') continue
 		
 		if (client.data.dead === true) continue
+		
+		// Player collisions
+		
+		for (let i = 0; i < clients.length; i++) {
+			const client2 = clients[i]
+			
+			if (client2 === client) continue
+			
+			if (client2.data.entity.touches(client.data.entity)) {
+				if (client2.data.powerup === 'destroy') {
+					chatAll('> ' + client2.data.name + ' killed ' + client.data.name)
+					
+					client.data.dead = true
+					
+					setTimeout(() => {
+						client.abstractor.send('dead', {})
+					}, 1500)
+				}
+			}
+		}
 		
 		// Enemy collisions
 		
@@ -268,9 +334,16 @@ setInterval(() => {
 				
 				gameState.powerups.splice(i, 1)
 				
-				addPowerUp()
+				console.log(powerup.type + ' powerup collected by ' + client.data.name)
 				
-				console.log('Powerup collected by ' + client.data.name)
+				if (powerup.type === 'slow') {
+					setActivePowerup('slow', 'others', client)
+				}
+				else if (powerup.type === 'destroy') {
+					setActivePowerup('destroy', 'same', client)
+				}
+				
+				waitAddPowerup()
 			}
 		}
 	}
@@ -324,18 +397,18 @@ setInterval(() => {
 	// Render powerups
 	
 	for (let i = 0; i < gameState.powerups.length; i++) {
-		const enemy = gameState.powerups[i]
+		const powerup = gameState.powerups[i]
 		
 		renderData.entities.push({
 			'type': 1,
-			'color': enemy.entity.backgroundColor,
-			'x': enemy.entity.x,
-			'y': enemy.entity.y,
-			'width': enemy.entity.radius,
-			'height': enemy.entity.radius,
-			'xvel': enemy.xspeed,
-			'yvel': enemy.yspeed,
-			'name': ''
+			'color': powerup.entity.backgroundColor,
+			'x': powerup.entity.x,
+			'y': powerup.entity.y,
+			'width': powerup.entity.radius,
+			'height': powerup.entity.radius,
+			'xvel': powerup.xspeed,
+			'yvel': powerup.yspeed,
+			'name': powerup.type.toUpperCase()
 		})
 	}
 	
