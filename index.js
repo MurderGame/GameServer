@@ -8,6 +8,12 @@ const eucli = require('eucli')
 
 const commonAbstractorFactory = require(path.join(__dirname, 'commonAbstractorFactory.js'))
 
+const debugMode = args.debug ? true : false
+
+if (debugMode) {
+	console.log('> Heads up: Debug mode enabled!')
+}
+
 let clients = []
 
 const gameState = {
@@ -216,7 +222,7 @@ const waitAddPowerup = () => {
 	setTimeout(() => {
 		const eligibleClients = clients.filter((client) => typeof client.data === 'object' && client.data.dead === false)
 		
-		if (eligibleClients.length > 0/*1*/) {
+		if (eligibleClients.length > debugMode ? 0 : 1) {
 			addPowerUp()
 		}
 		else waitAddPowerup()
