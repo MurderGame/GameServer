@@ -60,7 +60,7 @@ const findSafeLocation = () => {
 	const entities = gameState.enemies.concat(gameState.powerups).concat(clients.filter((client) => typeof client.data === 'object').map((client) => client.data))
 	
 	while (safe === false && attempts < 10) {
-		loc = [Math.floor(Math.random() * (gameState.width - 100)) + 50, Math.floor(Math.random() * (gameState.height - 160)) + 80]
+		loc = [Math.floor(Math.random() * (gameState.width - 160)) + 80, Math.floor(Math.random() * (gameState.height - 160)) + 80]
 		
 		safe = true
 		
@@ -86,7 +86,7 @@ const nextBackgroundColor = () => {
 	}
 }
 
-const powerupTypes = ['slow', 'destroy', 'magnet']
+const powerupTypes = ['slow', 'destroy', 'magnet', 'grow']
 
 const addPowerUp = () => {
 	const pos = findSafeLocation()
@@ -235,7 +235,7 @@ const waitAddPowerup = () => {
 }
 
 const setActivePowerup = (type, mode, target, particle = false) => {
-	clients.filter((client) => typeof client.data === 'object').forEach((client) => {
+	getConnectedClients().filter((client) => client.data.dead === false).forEach((client) => {
 		client.data.powerup = null
 
 		let apply = false
@@ -276,26 +276,44 @@ setInterval(() => {
 			const topTarget = enemyPriorities[0]
 
 			if (topTarget.data.entity.x > enemy.entity.x) {
-				enemy.entity.x += gameState.enemyTargetSpeed
+				enemy.xspeed = gameState.enemyTargetSpeed
+				enemy.entity.x += enemy.xspeed
 			}
 			else {
-				enemy.entity.x += -1 * gameState.enemyTargetSpeed
+				enemy.xspeed = -1 * gameState.enemyTargetSpeed
+				enemy.entity.x += enemy.xspeed
 			}
 
 			if (topTarget.data.entity.y > enemy.entity.y) {
-				enemy.entity.y += gameState.enemyTargetSpeed
+				enemy.yspeed = gameState.enemyTargetSpeed
+				enemy.entity.y += enemy.yspeed
 			}
 			else {
-				enemy.entity.y += -1 * gameState.enemyTargetSpeed
+				enemy.yspeed = -1 * gameState.enemyTargetSpeed
+				enemy.entity.y += enemy.yspeed
 			}
 		}
 		else {
 			enemy.entity.x += enemy.xspeed
 			enemy.entity.y += enemy.yspeed
 			
-			if (enemy.entity.y + enemy.entity.radius > gameState.height || enemy.entity.y - enemy.entity.radius < 0) enemy.yspeed *= -1
+			if (enemy.entity.y + enemy.entity.radius > gameState.height || enemy.entity.y - enemy.entity.radius < 0) {
+				if (enemy.entity.y > gameState.height / 2) {
+					enemy.yspeed = -1 * Math.abs(enemy.yspeed)
+				}
+				else {
+					enemy.yspeed = Math.abs(enemy.yspeed)
+				}
+			}
 			
-			if (enemy.entity.x + enemy.entity.radius > gameState.width || enemy.entity.x - enemy.entity.radius < 0) enemy.xspeed *= -1
+			if (enemy.entity.x + enemy.entity.radius > gameState.width || enemy.entity.x - enemy.entity.radius < 0) {
+				if (enemy.entity.x > gameState.width / 2) {
+					enemy.xspeed = -1 * Math.abs(enemy.xspeed)
+				}
+				else {
+					enemy.xspeed = Math.abs(enemy.xspeed)
+				}
+			}
 		}
 	}
 	
@@ -347,6 +365,25 @@ setInterval(() => {
 		
 		client.data.entity.x += client.data.vel.x
 		client.data.entity.y += client.data.vel.y
+	}
+
+	// Update client data (size)
+
+	for (let i = 0; i < clients.length; i++) {
+		const client = clients[i]
+		
+		if (typeof client.data !== 'object') continue
+		
+		if (client.data.dead === true) continue
+
+		if (client.data.powerup === 'grow') {
+			client.data.entity.width = 90
+			client.data.entity.height = 90
+		}
+		else {
+			client.data.entity.width = 30
+			client.data.entity.height = 30
+		}
 	}
 	
 	// Detect collisions
@@ -411,18 +448,9 @@ setInterval(() => {
 			if (powerup.entity.touches(client.data.entity)) {
 				sendAll('blur', {})
 
-				/*sendAll('particle', {
-					'type': 0,
-					'x': client.data.entity.x,
-					'y': client.data.entity.y,
-					'color': '#1AAF5D'
-				})*/
-
 				client.data.score += 1
 
 				nextBackgroundColor()
-				
-				//addEnemy()
 				
 				gameState.powerups.splice(i, 1)
 				
@@ -444,6 +472,12 @@ setInterval(() => {
 					setActivePowerup('magnet', 'others', client, {
 						'type': 1,
 						'color': '#95A5A6'
+					})
+				}
+				else if (powerup.type === 'grow') {
+					setActivePowerup('grow', 'others', client, {
+						'type': 1,
+						'color': '#D35400'
 					})
 				}
 				
