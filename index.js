@@ -124,6 +124,25 @@ const sendAll = (event, data) => {
 	})
 }
 
+const getScoreboard = () => {
+	let scoreboard = []
+
+	getConnectedClients().sort((a, b) => a.data.score > b.data.score ? -1 : 1).filter((client) => typeof client.data.name === 'string').slice(0, 4).forEach((client) => {
+		scoreboard.push({
+			'name': client.data.name,
+			'score': client.data.score
+		})
+	})
+
+	return scoreboard
+}
+
+const updateScoreboard = () => {
+	sendAll('scoreboard', {
+		'scores': getScoreboard()
+	})
+}
+
 const server = net.createServer((client) => {
 	console.log('A client connected.')
 	
@@ -144,7 +163,7 @@ const server = net.createServer((client) => {
 			'x': 0,
 			'y': 0
 		},
-		'dead': false,
+		'dead': true,
 		'entity': new canvax.Rectangle({
 			'x': spawnSafeLoc[0],
 			'y': spawnSafeLoc[1],
@@ -163,6 +182,8 @@ const server = net.createServer((client) => {
 		console.log('A client disconnected.')
 		
 		clients.splice(clients.indexOf(client), 1)
+
+		updateScoreboard()
 	})
 	
 	client.on('error', (err) => {
@@ -170,7 +191,14 @@ const server = net.createServer((client) => {
 	})
 	
 	abstractor.on('profile', (data) => {
+		if (typeof client.data.name === 'string') {
+			return
+		}
+
 		client.data.name = data.name
+		client.data.dead = false
+
+		updateScoreboard()
 	})
 
 	abstractor.on('chat', (data) => {
@@ -407,8 +435,11 @@ setInterval(() => {
 					chatAll('> ' + client2.data.name + ' killed ' + client.data.name)
 					
 					client.data.dead = true
+					client.data.score = 0
 
 					client2.data.score += 1
+
+					updateScoreboard()
 					
 					setTimeout(() => {
 						client.abstractor.send('dead', {})
@@ -432,6 +463,9 @@ setInterval(() => {
 				}
 				else {
 					client.data.dead = true
+					client.data.score = 0
+
+					updateScoreboard()
 					
 					setTimeout(() => {
 						client.abstractor.send('dead', {})
@@ -450,6 +484,8 @@ setInterval(() => {
 
 				client.data.score += 1
 
+				updateScoreboard()
+
 				nextBackgroundColor()
 				
 				gameState.powerups.splice(i, 1)
@@ -459,25 +495,25 @@ setInterval(() => {
 				if (powerup.type === 'slow') {
 					setActivePowerup('slow', 'others', client, {
 						'type': 1,
-						'color': '#8E44AD'
+						'color': '#8E44ADA0'
 					})
 				}
 				else if (powerup.type === 'destroy') {
 					setActivePowerup('destroy', 'same', client, {
 						'type': 1,
-						'color': '#6F1417'
+						'color': '#6F1417A0'
 					})
 				}
 				else if (powerup.type === 'magnet') {
 					setActivePowerup('magnet', 'others', client, {
 						'type': 1,
-						'color': '#95A5A6'
+						'color': '#95A5A6A0'
 					})
 				}
 				else if (powerup.type === 'grow') {
 					setActivePowerup('grow', 'others', client, {
 						'type': 1,
-						'color': '#D35400'
+						'color': '#D35400A0'
 					})
 				}
 				

@@ -70,6 +70,24 @@ module.exports = () => {
 		}
 	]))
 
+	build.register('scoreboard', new Schema([
+		{
+			'name': 'scores',
+			'type': types.list,
+			'of': new Schema([
+				{
+					'name': 'name',
+					'type': types.string
+				},
+				{
+					'name': 'score',
+					'type': types.uint,
+					'size': 16
+				}
+			])
+		}
+	]))
+
 	build.register('chat', new Schema([
 		{
 			'name': 'message',
