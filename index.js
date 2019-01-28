@@ -177,6 +177,16 @@ const server = net.createServer((client) => {
 	abstractor.pipe(client)
 	
 	clients.push(client)
+
+	abstractor.send('chat', {
+		'message': '> Connected to server.'
+	})
+
+	if (clients.length === 1) {
+		abstractor.send('chat', {
+			'message': '> You\'re the only one online now. Powerups will appear again when another player joins.'
+		})
+	}
 	
 	client.on('close', () => {
 		console.log('A client disconnected.')
