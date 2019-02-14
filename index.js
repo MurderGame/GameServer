@@ -65,7 +65,7 @@ const findSafeLocation = () => {
 		safe = true
 		
 		for (let i = 0; i < entities.length; i++) {
-			if (eucli(loc, [entities[i].entity.x, entities[i].entity.y]) < 300) {
+			if (eucli(loc, [entities[i].entity.x, entities[i].entity.y]) < 400) {
 				safe = false
 			}
 		}
@@ -170,7 +170,8 @@ const server = net.createServer((client) => {
 			'width': 30,
 			'height': 30,
 			'backgroundColor': playerColor
-		})
+		}),
+		'size': 50
 	}
 	
 	client.pipe(client.abstractor)
@@ -251,6 +252,8 @@ const server = net.createServer((client) => {
 		client.data.vel.x = 0
 		client.data.vel.y = 0
 		
+		client.data.size = 50
+		
 		client.data.dead = false
 	})
 })
@@ -275,6 +278,10 @@ const waitAddPowerup = () => {
 const setActivePowerup = (type, mode, target, particle = false) => {
 	getConnectedClients().filter((client) => client.data.dead === false).forEach((client) => {
 		client.data.powerup = null
+		
+		if (target.data.size < 120) {
+			target.data.size += 3
+		}
 
 		let apply = false
 		
@@ -415,12 +422,12 @@ setInterval(() => {
 		if (client.data.dead === true) continue
 
 		if (client.data.powerup === 'grow') {
-			client.data.entity.width = 90
-			client.data.entity.height = 90
+			client.data.entity.width = client.data.size + 40
+			client.data.entity.height = client.data.size + 40
 		}
 		else {
-			client.data.entity.width = 30
-			client.data.entity.height = 30
+			client.data.entity.width = client.data.size
+			client.data.entity.height = client.data.size
 		}
 	}
 	
@@ -490,7 +497,7 @@ setInterval(() => {
 			const powerup = gameState.powerups[i]
 			
 			if (powerup.entity.touches(client.data.entity)) {
-				sendAll('blur', {})
+				//sendAll('blur', {})
 
 				client.data.score += 1
 
