@@ -180,7 +180,11 @@ const server = net.createServer((client) => {
 	clients.push(client)
 
 	abstractor.send('chat', {
-		'message': '> Connected to server.'
+		'message': '> Connected to server in The Dalles, Oregon.'
+	})
+
+	abstractor.send('chat', {
+		'message': '> Version 0.1.1'
 	})
 
 	if (clients.length === 1) {
@@ -619,4 +623,4 @@ setInterval(() => {
 
 		clients[i].abstractor.send('render', renderData)
 	}
-}, 1)
+}, 4)
